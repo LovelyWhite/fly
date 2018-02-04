@@ -6,6 +6,9 @@
 #define WIDES 30
 #define COLS 25
 static int speed = 0;
+DWORD starttime;
+DWORD START;
+int flash;
 typedef struct a
 {
 	int EmyNum;//敌军最大数量
@@ -15,7 +18,7 @@ typedef struct a
 	int EmySpeed;//敌人下落速度
 	int AmmoSpeed;//子弹速度
 	int GenSpeed;//敌人产生速度
-	int MoveSpeed;
+	int MoveSpeed;//移动速度
 	int score;//分数
 }setting;
 typedef struct b
@@ -23,6 +26,14 @@ typedef struct b
 	int MapSize[COLS][WIDES];//-1代表敌人，1代表我方，0为空格，2代表炮弹 4代表击中
 	int MapBefore[COLS][WIDES];
 }map;
+int tick(int interVal)
+{
+	DWORD time = GetTickCount();
+	if (START - time  %  interVal==0)
+		return 1;
+	else
+		return 0;
+}
 void gotoxy(int x, int y)
 {
 	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -42,16 +53,16 @@ void GenEmy(setting* dat)//生成敌人
 void datchng(map* start, setting* dat)//数据改变
 {
 	int i = 0, j = 0;
-	speed++;                     //时钟
-	if (speed == 1000)speed = 0;
-	if (speed%dat->GenSpeed==0)//产生敌人时钟控制
+	if (tick(dat->GenSpeed))//产生敌人时钟控制
 		GenEmy(dat);
-	if (speed % (dat->EmySpeed)==0)      // 敌人移动时钟控制
+	if (tick(dat->EmySpeed))      // 敌人移动时钟控制
 	{
+		flash = 1;
 		for (i = COLS - 1; i >= 0; i--)
 		{
 			for (j = WIDES - 1; j >= 0; j--)
 			{
+				//Sleep(300);
 				if (i == COLS - 1)//敌机到底
 				{
 					if (dat->EmyPos[i][j] == -1)
@@ -70,12 +81,15 @@ void datchng(map* start, setting* dat)//数据改变
 			}
 		}
 	}
-	if (speed%(dat->AmmoSpeed)==0)  //子弹时钟控制
+	else flash = 0;
+	if (tick(dat->AmmoSpeed))  //子弹时钟控制
 	{
+		flash = 1;
 		for (i = 0; i < COLS; i++)
 		{
 			for (j = 0; j < WIDES; j++)
 			{
+				//Sleep(300);
 				if (i == 0)//子弹到顶
 				{
 					if (dat->AmmoPos[i][j] == 2)
@@ -93,10 +107,13 @@ void datchng(map* start, setting* dat)//数据改变
 			}
 		}
 	}
+	else flash = 0;
+	if(flash==1)
 	for (i = 1; i < COLS-1; i++)   //地图叠加合成
 	{
 		for (j = 1; j < WIDES-1; j++)
 		{
+			//Sleep(300);
 			//地图数据备份
 			start->MapBefore[i][j] = start->MapSize[i][j];
 			if (dat->EmyPos[i][j] +3 == dat->AmmoPos[i][j])
@@ -104,13 +121,14 @@ void datchng(map* start, setting* dat)//数据改变
 				dat->score++;
 				dat->AmmoPos[i][j] = 0;
 				dat->EmyPos[i][j] = 0;
-				start->MapSize[i][j] = 4;
-			}
-			else if (start->MapSize[i][j] == -1 || start->MapSize[i][j] == 2)
 				start->MapSize[i][j] = 0;
-			else if (dat->AmmoPos[i][j] == 2)
+				
+			}
+			if (start->MapSize[i][j] == -1 || start->MapSize[i][j] == 2)
+				start->MapSize[i][j] = 0;
+			if (dat->AmmoPos[i][j] == 2)
 				start->MapSize[i][j] = 2;
-			else if (dat->EmyPos[i][j] == -1)
+			if (dat->EmyPos[i][j] == -1)
 				start->MapSize[i][j] = -1;
 		}
 	}
@@ -118,7 +136,8 @@ void datchng(map* start, setting* dat)//数据改变
 void print(map* start, setting* dat)
 {
 	int i = 0, j = 0;
-	for (i = 1; i < COLS-1; i++)
+
+	for (i = 2; i < COLS-1; i++)
 	{
 		for (j = 1; j < WIDES-1; j++)
 		{
@@ -138,13 +157,13 @@ void print(map* start, setting* dat)
 	printf("X: %02d  Y: %02d", dat->Pos[1], dat->Pos[0]);
 	gotoxy(WIDES + 1, COLS / 2-6);
 	printf("Score:  %03d", dat->score);
-	datchng(start, dat);
 }
 void init(map *start, setting* dat)//初始化数据
 {
 	int i = 0, j = 0;
 	dat->Pos[0] = COLS - 2;
 	dat->Pos[1] = WIDES / 2;
+	starttime = GetTickCount();
 	system("mode con  cols=50 lines=25");
 	for (i = 1; i < COLS-1; i++)//界面搭建
 	{
@@ -182,15 +201,17 @@ void init(map *start, setting* dat)//初始化数据
 		}
 	start->MapSize[dat->Pos[0]][dat->Pos[1]] = 1;
 	dat->EmyNum = 3;
-	dat->EmySpeed = 423;
-	dat->AmmoSpeed = 20;
-	dat->GenSpeed = 500;
-	dat->MoveSpeed = 20;
+	dat->EmySpeed =16;
+	dat->AmmoSpeed = 1;
+	dat->GenSpeed = 1;
+	dat->MoveSpeed = 1;
 	dat->score = 0;
 }
 void moveshoot(map *start, setting *dat)//移动
 {
-	if (speed % (dat->MoveSpeed)==0)
+	//speed++;                     //时钟
+	//if (speed == 1000)speed = 0;
+	if (tick(dat->MoveSpeed))
 	{
 		start->MapSize[dat->Pos[0]][dat->Pos[1]] = 0;
 		if (GetAsyncKeyState(VK_UP) && dat->Pos[0] != 1) dat->Pos[0]--;
@@ -203,6 +224,7 @@ void moveshoot(map *start, setting *dat)//移动
 }
 int main()
 {
+	DWORD time = 0;
 	map start;
 	setting dat;
 	init(&start, &dat);
@@ -222,9 +244,17 @@ int main()
 				}
 			}
 		}
+		starttime = GetTickCount();
+		//if (flash == 1)
 		print(&start, &dat);
+		time = GetTickCount();
+		if (time - starttime  <1000 / 20) //帧率控制  20FPS
+		{
+			Sleep(1000 / 20 - (time - starttime));
+		}
+		datchng(&start, &dat);
 		moveshoot(&start, &dat);
-		if (dat.score < 0)
+		if (0)
 		{
 			system("cls");
 			gotoxy(WIDES / 2, COLS / 2);
